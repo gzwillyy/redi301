@@ -3,88 +3,75 @@
 package redirect
 
 import (
-	"bufio"
 	"fmt"
 	"net"
 	"strings"
 
+	"github.com/dlclark/regexp2"
+
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	rePath = regexp2.MustCompile(`(GET|HEAD?) (.*?) HTTP`, 0)
+	reHost = regexp2.MustCompile(`(?i)Host:\s*([^\r\n]+)`, 0)
+)
+
 func Process(conn net.Conn) {
+	var RequestHead string
+	var Path string
+	var Host string
 	defer conn.Close()
-
-	reader := bufio.NewReader(conn)
-
-	// 读取请求行
-	requestLine, err := reader.ReadString('\n')
-	if err != nil {
-		logrus.Errorf("[redirect] Failed to read request line: %v\n", err)
-		return
-	}
-	logrus.Debugf("Request Line: %s", requestLine)
-
-	// 解析请求行
-	parts := strings.Fields(requestLine)
-	if len(parts) < 3 {
-		logrus.Errorf("[redirect] Invalid request line: %s\n", requestLine)
-		sendBadRequest(conn)
-		return
-	}
-	method, path, httpVersion := parts[0], parts[1], parts[2]
-
-	// 验证HTTP版本
-	if !strings.HasPrefix(httpVersion, "HTTP/") {
-		logrus.Errorf("[redirect] Invalid HTTP version: %s\n", httpVersion)
-		sendBadRequest(conn)
-		return
-	}
-
-	// 读取并解析头部
-	var host string
 	for {
-		line, err := reader.ReadString('\n')
+		var buf [128]byte
+		// 接受数据
+		n, err := conn.Read(buf[:])
 		if err != nil {
-			logrus.Errorf("[redirect] Failed to read headers: %v\n", err)
-			return
+			logrus.Errorf("[redirect] read from connect failed, err: %v\n", err)
+			break
 		}
-		line = strings.TrimSpace(line)
-		if line == "" {
-			break // 头部读取结束
-		}
-		if strings.HasPrefix(strings.ToLower(line), "host:") {
-			host = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-			logrus.Debugf("Host: %s", host)
-		}
-	}
+		logrus.Debugf("Receive data: \n%s\n", string(buf[:n]))
+		RequestHead += string(buf[:n])
+		logrus.Debug(RequestHead)
+		if strings.Contains(RequestHead, "HTTP") {
+			// 提取 Path
+			if matchArr, err := rePath.FindStringMatch(RequestHead); err != nil {
+				Path = "/"
+			} else {
+				if matchArr != nil && len(matchArr.Groups()) > 2 {
+					Path = matchArr.Groups()[2].String()
+				} else {
+					Path = "/"
+				}
+			}
 
-	if host == "" {
-		logrus.Errorf("[redirect] Host header not found\n")
-		sendBadRequest(conn)
-		return
-	}
+			// 提取 Host
+			if matchHost, err := reHost.FindStringMatch(RequestHead); err != nil || matchHost == nil {
+				Host = "localhost" // 设置默认 Host
+			} else {
+				if len(matchHost.Groups()) > 1 {
+					Host = matchHost.Groups()[1].String()
+				} else {
+					Host = "localhost"
+				}
+			}
 
-	// 根据HTTP方法进行处理
-	switch strings.ToUpper(method) {
-	case "GET", "HEAD":
-		// 构建目标HTTPS URL
-		location := fmt.Sprintf("https://%s%s", host, path)
-		response := fmt.Sprintf("HTTP/1.1 301\r\n"+
-			"Content-Type: text/html\r\n"+
-			"Cache-Control: max-age=86400\r\n"+
-			"Content-Length: "+"0"+"\r\n"+
-			"Connection: close\r\n"+
-			"Location: %s\r\n\r\n", location)
-		// 发送重定向响应
-		_, err = conn.Write([]byte(response))
-		if err != nil {
-			logrus.Errorf("[redirect] Failed to write redirect response: %v\n", err)
-			return
+			// 构建基于 Host 和 Path 的 Location URL
+			location := fmt.Sprintf("https://%s%s", Host, Path)
+
+			// 发送 301 重定向响应
+			if _, err = conn.Write([]byte("HTTP/1.1 301\r\n" +
+				"Content-Type: text/html\r\n" +
+				"Cache-Control: max-age=86400\r\n" +
+				"Content-Length: " + "0" + "\r\n" +
+				"Connection: close\r\n" +
+				"Location: " + location + "\r\n\r\n")); err != nil {
+				logrus.Errorf("write to client failed, err: %v\n", err)
+				break
+			}
+			logrus.Debug("[redirect] Response sent...")
+			break
 		}
-		logrus.Debug("[redirect] Redirect response sent")
-	default:
-		// 返回405 Method Not Allowed
-		sendMethodNotAllowed(conn)
 	}
 }
 

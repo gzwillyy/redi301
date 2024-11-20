@@ -4,6 +4,7 @@ go 1.22.3
 
 require (
 	github.com/coreos/go-iptables v0.8.0
+	github.com/dlclark/regexp2 v1.11.4
 	github.com/florianl/go-nfqueue v1.3.2
 	github.com/google/gopacket v1.1.19
 	github.com/gookit/color v1.5.4
