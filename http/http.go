@@ -2,12 +2,13 @@ package http
 
 import (
 	"context"
+	"net"
+	"syscall"
+
+	"github.com/gzwillyy/redi301/config"
+	"github.com/gzwillyy/redi301/redirect"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
-	"net"
-	"redi301/config"
-	"redi301/redirect"
-	"syscall"
 )
 
 func Start() {

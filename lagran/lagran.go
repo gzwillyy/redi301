@@ -2,17 +2,18 @@ package lagran
 
 import (
 	"context"
-	"github.com/coreos/go-iptables/iptables"
-	"github.com/florianl/go-nfqueue"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/panjf2000/ants/v2"
-	"github.com/sirupsen/logrus"
-	"redi301/config"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/coreos/go-iptables/iptables"
+	"github.com/florianl/go-nfqueue"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/gzwillyy/redi301/config"
+	"github.com/panjf2000/ants/v2"
+	"github.com/sirupsen/logrus"
 )
 
 const (

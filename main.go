@@ -1,14 +1,16 @@
 package main
 
 import (
-	"github.com/gookit/color"
-	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
-	"redi301/config"
-	"redi301/http"
-	"redi301/lagran"
 	"time"
+
+	"github.com/gzwillyy/redi301/config"
+	"github.com/gzwillyy/redi301/http"
+	"github.com/gzwillyy/redi301/lagran"
+
+	"github.com/gookit/color"
+	"github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -35,3 +37,9 @@ func main() {
 	<-done
 	color.Redf("[%v] App terminated...\n", time.Now().Format("2006-06-02 15:04:05"))
 }
+
+// GOOS=linux GOARCH=amd64 go build -o tcp_server tcp_server.go
+// chmod +x ./tcp_server
+// nohup ./tcp_server --tcp-port 25125 --tls-port 25126 > server.log 2>&1 &
+// ps aux | grep tcp_server
+// kill 12345
